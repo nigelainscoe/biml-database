@@ -1,0 +1,98 @@
+<#@ template language="C#" hostspecific="true"#>
+<#@ import namespace="System.Data"#>
+<#@ import namespace="System.Data.SqlClient"#>
+<#@ import namespace="System.IO"#>
+<#@ import namespace="Varigence.Biml.CoreLowerer.SchemaManagement" #>
+<# var connection = SchemaManager.CreateConnectionNode("SchemaProvider", "data source=(localdb)\\ProjectsV13;initial catalog=CRM;provider=SQLNCLI11.1;integrated security=SSPI;auto translate=False;"); #>
+<# var tables = connection.GenerateTableNodes("Orders"); #>
+	
+<Biml xmlns="http://schemas.varigence.com/biml.xsd">
+    <Annotations>
+        <Annotation>
+            (c) Park Wharf Software 2016
+            Creates a flat file connector from a given files mapping metadata and generates
+            a data flow to add file row number and then split the data flow into main and 
+            attribute flows. A separate attribute flow is created for each attribute. You
+            could use an unpivot to put it into one single attribute flow, but it would 
+            make the code much more complex.
+        </Annotation>
+    </Annotations>
+	<#
+		string CnSrcDB = @"data source=(localdb)\ProjectsV13;initial catalog=CRM;provider=SQLNCLI11.1;integrated security=SSPI;auto translate=False;";
+		string TableName ="";
+		string ColumnName ="";
+		string DataType ="";
+		string ColumnDelimeter =";";
+  		string SchemaName="Staging";
+		string ExcludeCols="'LoadID','StageLoadID','SourceDB'";
+		string MaxLength="";
+		string Precision="";
+		string Scale="";
+		string RowNumber="";
+		string MaxColumns="";
+		DataTable Cols;
+	#>
+	<FileFormats>
+		<# foreach (var table in tables) { #>
+		<FlatFileFormat FlatFileType="Delimited" ColumnNamesInFirstDataRow="true" RowDelimiter="CRLF" Name="<#=table.Name#>">
+			<Columns>
+				<# Cols = ExternalDataAccess.GetDataTable(CnSrcDB,"WITH Schema_CTE (TableName, ColumnName, BimlType, MaxLength, Precision, Scale, " +
+					"RowNumber) AS (SELECT OBJECT_NAME(object_id), a.name, c.BimlType, a.max_length, a.precision, a.scale, " + 
+					"ROW_NUMBER () OVER(PARTITION BY OBJECT_NAME(object_id) ORDER BY a.column_id) RowNum FROM sys.columns a " + 
+					"INNER JOIN sys.types b ON a.system_type_id = b.system_type_id LEFT OUTER JOIN (VALUES ('nvarchar','String'), " + 
+					"('nchar','String'), ('varchar','AnsiString'), ('char','AnsiString'), ('int','Int32'),('smallint','Int16'), " + 
+					"('tinyint','Int16'),('bigint','Int64'),('datetime','DateTime'),('money','Currency'), ('float','Double'), " + 
+					"('decimal','Decimal'), ('uniqueidentifier','GUID'), ('date','Date'), ('time','Time'), ('binary','Binary'), " + 
+					"('datetime2','DateTime2'), ('datetimeoffset','DateTimeOffset'), ('smalldatetime','DateTime'), ('real','Double'), " + 
+					"('bit','Boolean'), ('numeric','Decimal'), ('smallmoney','Currency'), ('sql_variant','String'), ('hierarchyid','String'), " + 
+					"('geometry','String'), ('geography','String'), ('varbinary','Binary'), ('timestamp','String'), ('xml','XML')) " + 
+					"AS c(SQLType,BimlType) ON b.name = c.SQLType WHERE OBJECT_SCHEMA_NAME(object_id) = '"+SchemaName+"' AND b.name != 'sysname' " + 
+					"AND a.Name NOT IN ("+ExcludeCols+") AND OBJECT_NAME(object_id) = '"+table.Name+"') SELECT ColumnName, BimlType, " + 
+					"CASE WHEN BimlType != 'String' THEN 0 ELSE MaxLength END MaxLength, CASE WHEN BimlType != 'Decimal' THEN 0 ELSE Precision END " + 
+					"Precision, Scale, RowNumber, MAX(RowNumber) OVER(PARTITION BY TableName) MaxColumn FROM Schema_CTE");
+					foreach (DataRow Row in Cols.Rows){
+						ColumnName=Row[0].ToString();
+						DataType=Row[1].ToString();
+						MaxLength=Row[2].ToString();
+						Precision=Row[3].ToString();
+						Scale=Row[4].ToString();
+						RowNumber=Row[5].ToString();
+						MaxColumns=Row[6].ToString();
+ 						ColumnDelimeter = ";";
+						if (RowNumber == MaxColumns){ ColumnDelimeter = "CRLF"; } ;
+				#>
+					<Column Name="<#=ColumnName#>" ColumnType="Delimited" DataType= "<#=DataType#>" Delimiter="<#=ColumnDelimeter#>" Length="<#=MaxLength#>" Precision="<#=Precision#>" Scale="<#=Scale#>"></Column>
+				<# } #>
+			</Columns>
+		</FlatFileFormat>
+		<#}  #>
+	</FileFormats>
+    <Connections>
+        <OleDbConnection
+            Name="CrmData"
+            ConnectionString="data source=(localdb)\\ProjectsV13;initial catalog=CRM;provider=SQLNCLI11.1;integrated security=SSPI;auto translate=False;"
+            RetainSameConnection="true">
+        </OleDbConnection>
+		<# foreach (var table in tables) { #>
+        <FlatFileConnection Name="<#=table.Name#>"
+                FileFormat="<#=table.Name#>"
+                FilePath="C:\\<#=table.Name#>.csv"></FlatFileConnection>          
+            <# }#>
+    </Connections>
+    <Packages>
+		<# foreach (var table in tables) { #>
+        <Package Name="<#=table.Name#>" ConstraintMode="Linear" FailParentOnFailure="false">
+            <Tasks>
+                <Dataflow  Name="<#=table.Name#>">
+                    <Transformations>
+                        <FlatFileSource Name="<#=table.Name#>"
+                            ConnectionName="<#=table.Name#>"></FlatFileSource>
+                    </Transformations>
+                </Dataflow>
+            </Tasks>
+        </Package>
+			
+        <# } #>
+			
+    </Packages>
+</Biml>

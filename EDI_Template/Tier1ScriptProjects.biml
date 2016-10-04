@@ -1,0 +1,86 @@
+<#@ template language = "C#" tier = "1" #>
+<Biml xmlns="http://schemas.varigence.com/biml.xsd">
+
+    <ScriptProjects>
+
+        
+         <ScriptComponentProject ProjectCoreName="sc_c253bef215bf4d6b85dbe3919c35c167.csproj" Name="Generate File RowNumber">
+                <AssemblyReferences>
+                       <AssemblyReference AssemblyPath="Microsoft.SqlServer.DTSPipelineWrap" />
+                       <AssemblyReference AssemblyPath="Microsoft.SqlServer.DTSRuntimeWrap" />
+                       <AssemblyReference AssemblyPath="Microsoft.SqlServer.PipelineHost" />
+                       <AssemblyReference AssemblyPath="Microsoft.SqlServer.TxScript" />
+                       <AssemblyReference AssemblyPath="System.dll" />
+                       <AssemblyReference AssemblyPath="System.AddIn.dll" />
+                       <AssemblyReference AssemblyPath="System.Data.dll" />
+                       <AssemblyReference AssemblyPath="System.Xml.dll" />
+                </AssemblyReferences>
+                <Files>
+                <File Path="AssemblyInfo.cs">
+<!-- Left align the code so it lays out properly if we view the script in the package -->
+using System.Reflection;
+using System.Runtime.CompilerServices;
+ 
+//
+// General Information about an assembly is controlled through the following 
+// set of attributes. Change these attribute values to modify the information
+// associated with an assembly.
+//
+[assembly: AssemblyTitle("SC_977e21e288ea4faaaa4e6b2ad2cd125d")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("Park Wharf Software")]
+[assembly: AssemblyProduct("SC_977e21e288ea4faaaa4e6b2ad2cd125d")]
+[assembly: AssemblyCopyright("Copyright pw6s.com ")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+//
+// Version information for an assembly consists of the following four values:
+//
+//      Major Version
+//      Minor Version 
+//      Build Number
+//      Revision
+//
+// You can specify all the values or you can default the Revision and Build Numbers 
+// by using the '*' as shown below:
+ 
+[assembly: AssemblyVersion("1.0.*")]
+                           </File>
+							<!-- Replaced greater/less than by &gt; and &lt; -->
+                           <File Path="main.cs">
+/// &lt;summary&gt;
+/// Rownumber transformation to create an identity column
+/// &lt;/summary&gt;
+[Microsoft.SqlServer.Dts.Pipeline.SSISScriptComponentEntryPointAttribute]
+public class ScriptMain : UserComponent
+{
+
+	/// &lt;summary&gt;
+	/// Increment rowNumber and assign to the FileRowNumber output column
+	/// &lt;/summary&gt;
+
+    int rowNumber = 0;
+    public override void Input0_ProcessInputRow(Input0Buffer Row)
+    {
+        rowNumber = rowNumber + 1;
+        Row.FileRowNumber = rowNumber;
+    }	
+}
+                           </File>
+                    </Files>
+                    <InputBuffer Name="Input0">
+                           <Columns>
+                           </Columns>
+                    </InputBuffer>
+                    <OutputBuffers>
+                           <OutputBuffer Name="Output0">
+                                  <Columns>
+                                        <Column Name="FileRowNumber" DataType="Int32"></Column>
+                                  </Columns> 
+                           </OutputBuffer>
+                    </OutputBuffers>
+             </ScriptComponentProject>
+       </ScriptProjects>
+
+</Biml>

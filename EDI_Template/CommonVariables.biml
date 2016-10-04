@@ -1,0 +1,13 @@
+<#
+
+// Set up the connection variable that is used for the SQL queries against the meta data
+var crmAdoConnection = "CrmAdo";
+
+// Get an enumerable list of the files to process
+var FlatFiles = Mapping.GetFlatFiles(crmAdoConnection);
+
+// Set the connection string for the package OLEDB connections.
+var crmOledbConnection = @"Data Source=(localdb)\MSSQLLocalDB;Initial Catalog=CRM;Provider=SQLNCLI11.1;Integrated Security=SSPI;Auto Translate=False;";
+
+
+#>

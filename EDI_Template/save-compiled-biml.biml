@@ -1,0 +1,16 @@
+<Biml xmlns="http://schemas.varigence.com/biml.xsd">  
+  <#  
+      string xBiml = RootNode.GetBiml();  
+      XmlDocument xmlDoc = new XmlDocument();  
+      xmlDoc.LoadXml(xBiml);  
+      string sFile = @"D:\Temp\ssisBIML.xml";  
+ 
+      xmlDoc.Save(sFile);  
+   #> 
+</Biml>  
+ 
+<#@ template tier="100" #> 
+<#@ import namespace="Varigence.Biml.CoreLowerer.SchemaManagement"  #> 
+<#@ import namespace="System.Xml"  #> 
+
+ 

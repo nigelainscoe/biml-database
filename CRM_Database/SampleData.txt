@@ -1,0 +1,3 @@
+CardNumber,ExpiryDate,Title,FirstName,LastName,PhoneNumber,Mobile Number,Private Banker Name,Private Banker Phone,Email Address
+8888777766665555,01/12/2018,Lady,Jane,Godiva,01234567890,07234567890,Maurice,01987654321,jane@example.com
+9999777722221234,01/09/2018,Mr.,Henry,Tudor,01294653890,07292547890,Jeremy,01987665937,henry@example.com

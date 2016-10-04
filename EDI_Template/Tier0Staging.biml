@@ -1,0 +1,195 @@
+<#@ template language = "C#" tier = "0" #>
+<#@ assembly name="C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\System.Windows.Forms.dll" #>
+<#@ import namespace="System.Windows.Forms" #>
+<#@ assembly name="C:\\Windows\Microsoft.NET\\Framework\\v4.0.30319\\System.Data.DataSetExtensions.dll" #>
+<#@ import namespace="System.Data" #>
+<#@ assembly name="D:\\Dev\\Git\\biml-crm\BlackSnowUtils\bin\\Release\\BlackSnowUtils.dll" #>
+<#@ import namespace="BlackSnow" #>
+
+<Biml xmlns="http://schemas.varigence.com/biml.xsd">
+    <Annotations>
+        <Annotation>
+            (c) Park Wharf Software 2016
+            Manages the creation of the packages to load staging from flat files.
+        </Annotation>
+    </Annotations>
+
+    <!-- ScriptProjects are derived from Tier1ScriptProjects.biml -->
+
+    <!-- FileFormats are derived from Tier1FileFormats.biml -->
+
+	<#@ include file="CommonVariables.biml"  #> 
+    <Projects>
+
+        <PackageProject Name="EDI_Template">
+
+    <!--    <Parameters> Package Parameters cannot be generated using Biml </Parameters> -->
+    <!--    This Explains why not: http://www.cathrinewilhelmsen.net/2016/05/27/cant-create-ssis-project-parameters-from-biml/ -->
+
+            <Packages>
+
+        <# foreach (var FileId in FlatFiles) { #>
+                <Package PackageName="Import_<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>_Biml_Package" />
+		<# } #>
+
+            </Packages>
+        </PackageProject>
+
+    </Projects>
+
+    <Packages>
+
+        <# foreach (var FileId in FlatFiles) { #>
+
+        <Package Name = "Import_<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>_Biml_Package" ConstraintMode="Linear" >
+
+			<Parameters>
+				<Parameter Name="ProcessingFileName" DataType="String">D:\Dev\Git\biml-crm\CRM_Database\SampleData.txt</Parameter>
+				<Parameter Name="ClientId" DataType="Int32">1</Parameter>
+			</Parameters>
+
+			<Variables>
+                <Variable Name="ProcessingFileId" DataType="Int32">0</Variable>
+			</Variables>
+
+			<Connections>
+			    <Connection ConnectionName = "<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>" />
+			    <Connection ConnectionName = "CrmDatabaseOleDb" 
+			                Id="{AC05E630-F638-4C95-B9AB-D8ED4EFBE30B}"/>
+			</Connections>
+
+            <Tasks>
+
+                <ExecuteSQL Name="Log Staging Load Started" ConnectionName="CrmDatabaseOleDb">
+                    <DirectInput>EXEC Logging.StagingStarted ?, ? OUTPUT</DirectInput>
+                    <Parameters>
+                        <Parameter Name="0" DataType="String" VariableName = "Import_<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>_Biml_Package.ProcessingFileName" Length="100" />
+                        <Parameter Name="1" DataType="Int32" VariableName = "User.ProcessingFileId" Direction = "Output" />
+                    </Parameters>
+                </ExecuteSQL>
+
+                <Dataflow Name="DFT Load FileStore" >
+
+                        <Transformations>
+
+                            <FlatFileSource 
+                                Name="Customer Data" 
+                                ConnectionName   ="<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>"  
+                                RetainNulls = "true" >
+                            </FlatFileSource>
+                            
+                            <ScriptComponentTransformation Name="Generate File RowNumber">
+                                <ScriptComponentProjectReference ScriptComponentProjectName="Generate File RowNumber" />
+                            </ScriptComponentTransformation>
+
+                            <DerivedColumns Name="Add Processing Metadata">
+                                <Columns>
+                                    <Column Name="ClientFileId" DataType="Int32" >@[User::ProcessingFileId]</Column>
+                                    <Column Name="ClientServiceId" DataType="Int32" >@[$Package::ClientId]</Column>
+                                </Columns>
+                            </DerivedColumns>
+
+                            
+        <!-- At this point we need to split the flow, firstly into the individual table flows and
+             secondly one flow each for the attributes and unpivots -->
+
+                            <!-- Work out how many table and attribute paths we need and 
+                                 create a Multicast transform to output each of them -->   
+                            <# var MappingPaths = Mapping.GetMulticastPaths(crmAdoConnection, FileId);#>
+
+                            <Multicast Name = "Split Out Tables and Attributes">
+                                <OutputPaths>
+                                <#foreach (DataRow row in MappingPaths.Rows) { #>
+                                    <OutputPath Name="<#=row["MulticastPath"]#>" />
+                        		<# } #>
+                                </OutputPaths>
+                            </Multicast>
+                            
+                            
+                            <!-- Generate OleDb destinations for the direct tables and wire them up to 
+                                 their corresponding Muticast outputs -->   
+                            <#foreach (DataRow row in MappingPaths.Rows) 
+                            {
+                                if (row["MulticastType"].ToString() == "Table" ) 
+                                    { #>
+                                        <OleDbDestination Name="<#=row["MulticastPath"]#>" ConnectionName="CrmDatabaseOleDb" >
+                                            <InputPath OutputPathName="Split Out Tables and Attributes.<#=row["MulticastPath"]#>" />
+                                            <ExternalTableOutput Table="Staging.<#=row["MulticastPath"]#>"/>
+                                        </OleDbDestination>
+                                <#  }
+                            }#>
+
+                            <!-- Where there are multiple columns targeting a single destination, mainly phone but possibly email 
+                                 or others then we will unpivot them into a single column 
+                                 See the documentation for the data mapping conventions to use for columns that require unpivoting
+                                 as it is slightly different than for normal table mappings -->
+
+                            <#foreach (DataRow row in MappingPaths.Rows) 
+                            {
+                                if (row["MulticastType"].ToString() == "UnPivot" ) 
+                                    {#>
+                                    
+                                    <#=Mapping.GetUnpivotComponent(crmAdoConnection, FileId, row["MulticastPath"].ToString())#>
+                                    
+                                    <# var CurrentUnpivot = Mapping.GetUnpivotOutputField(crmAdoConnection, FileId, row["MulticastPath"].ToString());#>
+                                
+                                    <!-- Now remove any null or blank rows  -->
+                                        <ConditionalSplit Name="CS <#=CurrentUnpivot#>">
+                                            <!-- <InputPath OutputPathName="Unpivot Output.<#=row["MulticastPath"]#>" /> -->
+                                            <OutputPaths>
+                                                <OutputPath Name="<#=CurrentUnpivot#>Exists" IsErrorOutput="false">
+                                                    <Expression>!ISNULL([<#=CurrentUnpivot#>])</Expression>
+                                                </OutputPath>
+                                            </OutputPaths>
+                                        </ConditionalSplit>
+
+                                        <OleDbDestination Name="<#=row["MulticastPath"]#>" ConnectionName="CrmDatabaseOleDb" >
+                                            <InputPath OutputPathName="CS <#=CurrentUnpivot#>.<#=CurrentUnpivot#>Exists" />
+                                                <ExternalTableOutput Table="Staging.<#=row["MulticastPath"]#>"/>
+                                        </OleDbDestination> 
+
+                                <#  }
+                            }#>
+
+
+                            <!-- Generate OleDb destinations for the Attribute table and wire them up to 
+                                 their corresponding Muticast outputs -->   
+                            <#foreach (DataRow row in MappingPaths.Rows) 
+                            {
+                                if (row["MulticastType"].ToString() == "Attribute" ) 
+                                    { #>
+                                        <!-- Ignore Null rows -->
+                                        <ConditionalSplit Name="CS <#=row["MulticastPath"]#>">
+                                            <InputPath OutputPathName="Split Out Tables and Attributes.<#=row["MulticastPath"]#>" />
+                                            <OutputPaths>
+                                                <OutputPath Name="<#=row["MulticastPath"]#>Exists" IsErrorOutput="false">
+                                                    <Expression>!ISNULL([<#=row["MulticastPath"]#>])</Expression>
+                                                </OutputPath>
+                                            </OutputPaths>
+                                        </ConditionalSplit>
+
+                                        <DerivedColumns Name="Add <#=row["MulticastPath"]#> Attribute">
+                                            <InputPath OutputPathName="CS <#=row["MulticastPath"]#>.<#=row["MulticastPath"]#>Exists" />
+                                            <Columns>
+                                                <Column Name="AttributeTypeId" DataType="Int32" ><#=row["AttributeTypeId"]#></Column>
+                                            </Columns>
+                                        </DerivedColumns>
+
+                                        <OleDbDestination Name="<#=row["MulticastPath"]#>" ConnectionName="CrmDatabaseOleDb" >
+                                            <ExternalTableOutput Table="Staging.Attribute"/>
+                                            <Columns>
+                                                <Column SourceColumn="<#=row["MulticastPath"]#>" TargetColumn="AttributeValue" />
+                                            </Columns>
+                                    </OleDbDestination> 
+
+                                <#  }
+                            }#>
+
+                        </Transformations>
+
+                </Dataflow>
+            </Tasks>
+        </Package>
+		<# } #>
+    </Packages>
+</Biml>

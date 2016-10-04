@@ -1,0 +1,52 @@
+<#@ template language = "C#" tier = "1" #>
+<#@ assembly name="D:\\Dev\Git\\biml-crm\\BlackSnowUtils\\bin\\Release\\BlackSnowUtils.dll" #>
+<#@ import namespace="BlackSnow" #>
+<#@ assembly name="C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\System.Windows.Forms.dll" #>
+<#@ import namespace="System.Windows.Forms" #>
+<Biml xmlns="http://schemas.varigence.com/biml.xsd">
+	<#@ include file="CommonVariables.biml"  #> 
+
+    <Connections>
+    <# foreach (var FileId in FlatFiles) { #>
+
+        <!-- Create a connection to the incoming data (FilePath can have any old nonsense in it but it needs something) -->
+        <FlatFileConnection 
+            Name = "<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>" 
+            FileFormat = "<#=Mapping.GetConnectionName(crmAdoConnection, FileId)#>"  
+            FilePath = "D:\Dev\EDI_Template\SampleData.txt"
+			DelayValidation="true">
+                <Expressions>
+                    <Expression PropertyName="ConnectionString">@[$Package::ProcessingFileName]</Expression>
+                </Expressions>
+		</FlatFileConnection>
+
+		<# } #>
+ 
+        <!-- Create a connection to the target database  -->
+        <OleDbConnection
+            Name="CrmDatabaseOleDb" 
+            CreateInProject = "true"
+            ConnectionString = "<#=crmOledbConnection#>" >
+        </OleDbConnection>
+ 
+    </Connections>
+
+    
+   <FileFormats>
+
+    <# foreach (var FileId in FlatFiles) { #>
+  
+
+
+        <!-- Describes the incoming customer file.  -->
+        <FlatFileFormat <#=Mapping.GetFileFormatHeader(crmAdoConnection, FileId)#> >
+            <Columns>
+                <#=Mapping.GetFileFormatColumns(crmAdoConnection, FileId)#>
+            </Columns>
+        </FlatFileFormat>
+
+		<# } #>
+
+    </FileFormats>
+ 
+</Biml>
