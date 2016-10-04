@@ -16,9 +16,11 @@ Now you can open the solution in Visual Studio, build it and play with the code.
 
 ### Getting set up
 
-Build the project to restore any required packages.
+Build the project to restore any required packages. 
+_Make sure to build the release version so that the `BlackSnowUtils.dll` is in the correct place._
 
-You will need to deploy the database project to a SQL Server. You can use localdb, developer edition or any other edition of SQL Server.
+You will need to deploy the database project to a SQL Server. You can use (localdb)\MSSQLLocalDB or any other edition of SQL Server. If you don't use (localdb)\MSSQLLocalDB you will need to update the connection strings in `MappingUtils.cs` and `CommonVariables.biml` accordingly.
+
 Once you have an appropriate server, open the file `DEVELOPMENT_CRM_Database.publish.xml` in the CRM_Database project and modify the connection to point at your server and publish. This will create the test CRM database, with all the required tables.
 
 In the files `Tier1FileFormats.biml` and `Tier0Staging.biml` in the EDI_Templatefolder, update the path for the `BlackSnowUtils.dll` file to match your own setup.
