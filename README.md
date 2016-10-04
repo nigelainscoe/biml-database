@@ -16,9 +16,13 @@ Now you can open the solution in Visual Studio, build it and play with the code.
 
 ### Getting set up
 
-You will need to deploy the database project to a SQL Server. You can use localdb, developer edition or any other edition of SQL Server.
-Once you have an appropriate server, open the "DEVELOPMENT_CRM_Database.publish.xml" in the CRM_Database project and modify the connection for your server and publish. This will create the test CRM database, with all the required tables/
+Build the project to restore any required packages.
 
-Before you can build your SSIS Packages from the BimlScript you will need some metadata. You can run the script "Metadata Configuration.sql" in the root of the solution which will add metadata for two flat file feeds.
+You will need to deploy the database project to a SQL Server. You can use localdb, developer edition or any other edition of SQL Server.
+Once you have an appropriate server, open the file `DEVELOPMENT_CRM_Database.publish.xml` in the CRM_Database project and modify the connection to point at your server and publish. This will create the test CRM database, with all the required tables.
+
+In the files `Tier1FileFormats.biml` and `Tier0Staging.biml` in the EDI_Templatefolder, update the path for the `BlackSnowUtils.dll` file to match your own setup.
+
+Before you can build your SSIS Packages from the BimlScript you will need some metadata. You can run the script `Metadata Configuration.sql` in the root of the solution which will add metadata for two flat file feeds.
 
 
